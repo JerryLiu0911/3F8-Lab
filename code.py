@@ -143,7 +143,7 @@ def fit_w(X_tilde_train, y_train, X_tilde_test, y_test, n_steps, alpha):
     for i in range(n_steps):
         sigmoid_value = predict(X_tilde_train, w)
 
-        w = # XXX Gradient-based update rule for w. To be completed by the student
+        w = w + alpha * np.dot(X_tilde_train.T, (y_train - sigmoid_value))
 
         ll_train[ i ] = compute_average_ll(X_tilde_train, y_train, w)
         ll_test[ i ] = compute_average_ll(X_tilde_test, y_test, w)
@@ -153,8 +153,8 @@ def fit_w(X_tilde_train, y_train, X_tilde_test, y_test, n_steps, alpha):
 
 # We train the classifier
 
-alpha = # XXX Learning rate for gradient-based optimisation. To be completed by the student
-n_steps = # XXX Number of steps of gradient-based optimisation. To be completed by the student
+alpha = 1 # XXX Learning rate for gradient-based optimisation. To be completed by the student
+n_steps = 100 # XXX Number of steps of gradient-based optimisation. To be completed by the student
 
 X_tilde_train = get_x_tilde(X_train)
 X_tilde_test = get_x_tilde(X_test)
@@ -236,7 +236,7 @@ def evaluate_basis_functions(l, X, Z):
 
 # We expand the data
 
-l = # XXX Width of the Gaussian basis funcction. To be completed by the student
+l = [0.01, 0.1, 1]# XXX Width of the Gaussian basis funcction. To be completed by the student
 
 X_tilde_train = get_x_tilde(evaluate_basis_functions(l, X_train, X_train))
 X_tilde_test = get_x_tilde(evaluate_basis_functions(l, X_test, X_train))
