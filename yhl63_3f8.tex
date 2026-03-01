@@ -3,7 +3,7 @@
 \documentclass[english]{article}
 \usepackage{lmodern}
 \usepackage[T1]{fontenc}
-\usepackage[latin9]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{geometry}
 \geometry{verbose,tmargin=3cm,bmargin=3cm,lmargin=2.5cm,rmargin=2.5cm}
 \usepackage{textcomp}
@@ -28,24 +28,20 @@
 \author{Author's Name}
 \maketitle
 \begin{abstract}
-This is the abstract. 
-
-Try for 1-2 sentences on each of: motive (what it's
-about), method (what was
-
-done), key results and conclusions (the main outcomes).
-
-\textbullet{} Don't exceed 3 sentences on any one.
-
-\textbullet{} Write this last, when you know what it should say!
+This report compares linear logistic regression against Gaussian RBF feature expansions for binary classification.
+RBF features substantially outperform the linear baseline (test ll $-0.61$, recall 71--74\%), but performance depends critically on kernel width~$l$: collapse at $l=0.01$, overfitting at $l=0.1$, and optimal generalisation (94\% recall, test ll $-0.20$) at $l=1$.
+Scaling and robustness could be improved via clustering-based centre selection, cross-validated tuning, and $\ell_2$ regularisation.
 \end{abstract}
 
 \section{Introduction}
-\begin{enumerate}
-\item What is the problem and why is it interesting?
-\item What novel follow-up will the rest of your report present?
-\end{enumerate}
+Binary classification is a fundamental machine learning task with applications from medical diagnosis to spam detection.
+When class boundaries are non-linear and classes overlap, linear models such as logistic regression often underperform, motivating non-linear feature transformations.
+Radial basis function (RBF) expansions—which measure similarity to prototype centres—can approximate arbitrary decision boundaries, but their performance depends critically on hyperparameters such as kernel width~$l$ and centre placement.
 
+This report investigates how these design choices affect classification performance.
+We establish a baseline with linear logistic regression, then systematically explore RBF feature expansions with varying kernel widths, placing one centre at each training point.
+By analysing train and test log-likelihoods, per-class recall, and feature matrix condition numbers, we demonstrate how~$l$ governs a transition from underfitting (small~$l$) through overfitting (intermediate~$l$) to good generalisation (large~$l$).
+We discuss how placing centres at all training points creates computational and statistical inefficiencies, and propose remedies including clustering-based dimensionality reduction, cross-validated hyperparameter selection, and regularisation.
 \section{Exercise a)\label{sec:Exercise-a}}
 
 In this exercise we have to consider the logistic classication model
@@ -203,7 +199,7 @@ The learning rate and number of training steps are chosen ad-hoc such that the l
 Figure \ref{fig:contours_l} displays the visualisation of the contours
 of the resulting class predictive probabilities on top of the data
 for each choice of $l=\{0.01,0.1,1\}$. The choice of the width $l$ has a significant impact on the resulting decision boundary. 
-When $l$ is too small (e.g. $l=0.01$), the decision boundary becomes very complex and overfits the training data, resulting in a highly non-linear boundary that may not generalise well to new data points.
+When $l$ is too small (e.g. $l=0.01$), the decision boundary becomes tightly bounded to each datapoint and overfits the training data, resulting in boundary that may not generalise well to new data points, this effect is visualised in figure \ref{fig:contours_l_001_3d}, and its implications further explored in the following exercise.
 
 \begin{figure}[H]
 \begin{centering}
@@ -213,16 +209,31 @@ When $l$ is too small (e.g. $l=0.01$), the decision boundary becomes very comple
 for $l=0.01$ (left), $l=0.1$ (middle), $l=1$ (right).\label{fig:contours_l} }
 \end{figure}
 
+\begin{figure}[H]
+\begin{centering}
+\includegraphics[width=0.6\textwidth]{contours_l_001_3d.png}
+\par\end{centering}
+\caption{3D visualisation of the contours of the class predictive probabilities for $l=0.01$.\label{fig:contours_l_001_3d} }
+\end{figure}
 
 \section{Exercise g)}
 
-The final final training and test log-likelihoods per datapoint obtained
+The final training and test log-likelihoods per datapoint obtained
 for each setting of $l=\{0.01,0.1,1\}$ are shown in tables \ref{tab:avg_ll_l_001},
-\ref{tab:avg_ll_l_01} and \ref{tab:avg_ll_l_1}.  The 2 \texttimes{} 2 confusion matrices for the three models
+\ref{tab:avg_ll_l_01} and \ref{tab:avg_ll_l_1}.  The $2 \times 2$ confusion matrices for the three models
 trained with $l=\{0.01,0.1,1\}$ are show in tables \ref{tab:conf_l_001},
-\ref{tab:conf_l_01} and \ref{tab:conf_l_1}. After analysing these
-matrices, we can say that... When we compare these results to those
-obtained using the original inputs we conclude that...
+\ref{tab:conf_l_01} and \ref{tab:conf_l_1}.
+
+The choice of RBF width $l$ has a pronounced effect on both generalisation performance and class-level prediction behaviour, which we can understand through the lens of bias--variance trade-off and the condition number of the feature matrix $\Phi$.
+For $l=0.01$, the basis functions are extremely narrow, so the feature matrix is nearly identity-like with near-orthogonal columns and very small off-diagonal entries: $\Phi_{ij} \approx \delta_{ij}$, where $\delta_{ij}$ is the Kronecker delta.
+While this yields a well-conditioned system, the resulting probability surface is essentially flat (close to $\sigma(w_0)$) everywhere except at sharp spikes of radius $\sim 0.01$ centred on each training point, as seen in figure \ref{fig:contours_l_001_3d}, where the contours indicate that the model is overfitting to the training data and is not able to generalise well to new data points.
+Since these spikes vanish on the test set, the classifier is heavily biased towards predicting class 0, as confirmed by the confusion matrix (97\% recall on class 0 but only 7\% on class 1) and the large train--test log-likelihood gap ($-0.48$ vs.\ $-0.68$).
+For $l=0.1$, the basis functions are wider and the model achieves high recall on both classes (96\% and 92\%), with a markedly improved training log-likelihood of $-0.14$.
+However, the train-test gap (-0.14 vs. -0.22) is larger than for $l=1$, indicating overfitting: at this intermediate scale the columns of the feature matrix are moderately yet intricately correlated, producing some small singular values and a high condition number
+$\kappa({\Phi})=\sigma_{\max}/\sigma_{\min}$, which amplifies sampling noise and makes the learned weights sensitive to the particular training split.
+For $l=1$, the broad basis functions produce a smoothly varying probability surface that generalises best: the train and test log-likelihoods are almost equal ($-0.21$ vs.\ $-0.20$), and the confusion matrix shows balanced recall of 94\% on both classes.
+The lower condition number at this scale implies that the weight vector $w$ is stable across different training samples, explaining the absence of overfitting.
+Overall, $l=1$ offers the best bias--variance trade-off on this dataset, while $l=0.01$ suffers from extreme bias and $l=0.1$ from high variance.   
 
 \begin{table}[H]
 \centering{}%
@@ -258,7 +269,7 @@ obtained using the original inputs we conclude that...
 \end{minipage}
 \end{table}
 
-\begin{table}
+\begin{table}[H]
 \centering{}%
 \begin{minipage}[t]{0.33\textwidth}%
 \begin{center}
@@ -309,9 +320,20 @@ $y$ & 0 & 0.94 & 0.06\tabularnewline
 
 
 \section{Conclusions}
-\begin{enumerate}
-\item Draw together the most important results and their consequences.
-\item List any reservations or limitations.
-\end{enumerate}
+
+This report investigated binary classification using logistic regression, first with raw linear features and then with a Gaussian RBF feature expansion.
+The linear classifier converged quickly but achieved only modest performance (test log-likelihood $-0.61$, recall $\sim$71--74\% per class), a predictable consequence of the non-linear, overlapping class structure in the data.
+
+Expanding to RBF features substantially improved performance, but the outcome was highly sensitive to the kernel width $l$ : 
+At $l=0.01$ the model suffered severe bias; the feature matrix was near-identity and the probability surface collapsed to nearly a constant, causing the classifier to predict class~0 almost universally (class-1 recall of only 7\%).
+At $l=0.1$ training performance was highest (training log-likelihood $-0.14$), yet the train--test gap ($-0.14$ vs.\ $-0.22$) betrayed overfitting driven by the high condition number of the feature matrix at this intermediate scale.
+At $l=1$, the model performed best, as the train and test log-likelihoods were nearly equal ($-0.21$ vs.\ $-0.20$) and both classes were recalled at 94\%, indicating a favourable bias--variance balance.
+
+However, Placing one RBF centre at every training point can scale poorly both the feature matrix ${\Phi}$ and the gradient computation become expensive as $N$ grows.
+A principled remedy would be to select a smaller set of representative centres, for example via $k$-means clustering or a $k$-nearest-neighbour ($k$-NN) approach, retaining only the $k$ cluster centroids or the $k$ most informative training points as centres.
+This would reduce the feature dimension from $N$ to $k \ll N$, lower the condition number of ${\Phi}$, and likely improve generalisation further by removing redundant, closely-spaced centres.
+We may also implement a more principled approach would use cross-validation or a validation set to select $l$ automatically, as well as adding an $\ell_2$ penalty on $w$ (i.e.\ a Gaussian prior in the Bayesian view) would provide an additional lever to control overfitting, particularly relevant at $l=0.1$ where the ill-conditioned feature matrix amplifies weight magnitude.
+Finally, all results are sensitive to the random train--test split; reporting averages over multiple random seeds would give a more reliable estimate of generalisation performance.
+This exercise also demonstrates why we have moved away from RBF's despite them being a universal approximator. Methods like deep neural networks learn hierarchical feature representations that scale efficiently to large datasets, while kernel methods like SVMs achieve sparsity by selecting only support vectors. The RBF approach examined here occupies a middle ground: it demonstrates the power of non-linear feature transformations, but its computational cost and sensitivity to hyperparameters make it less practical than either extreme for contemporary applications. Nonetheless, understanding RBF classifiers provides valuable insight into the bias-variance tradeoff and the importance of feature engineering.
 
 \end{document}
